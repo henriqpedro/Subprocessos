@@ -1,165 +1,72 @@
 #include <stdio.h>
-#include <string.h>
-#include "token.h"
+#include <unistd.h>
+#include "compile.h"
 
-struct tokenList tokenList;
-token *currentToken;
-
-void printExpectedTokenException(char *);
-
-int isTokenType(int);
-void nextToken();
-
-double E(double);
-double lineE(double, double);
-double T(double, double);
-double lineT(double, double);
-double F(double);
-double MF(double);
-
-void printExpectedTokenException(char *expected)
+int **initMatrix(int xCount, int yCount)
 {
-    if (currentToken == NULL)
-        printf("Error: expected %s, but was NULL\n", expected);
-    else
-        printf("Error: expected %s, but was '%s'\n", expected, currentToken->input);
-    exit(0);
-}
+    int **matrix;
+    int line = 0, column = 0;
 
-int isTokenType(int type)
-{
-    return currentToken != NULL && currentToken->type == type;
-}
+    matrix = (int **)malloc(sizeof(int *) * yCount);
+    while (line < yCount)
+        *(matrix + line++) = (int *)malloc(sizeof(int) * xCount);
 
-void nextToken()
-{
-    currentToken = currentToken->next;
-}
-
-double E(double incognita)
-{
-    double number = 0;
-    number = T(number, incognita);
-    number = lineE(number, incognita);
-    return number;
-}
-
-double lineE(double number, double incognita)
-{
-    if (isTokenType('+'))
+    line = 0;
+    while (line < yCount)
     {
-        nextToken();
-        number += T(number, incognita);
-        number = lineE(number, incognita);
+        while (column < xCount)
+            *(*(matrix + line) + column++) = 0;
+        line++;
+        column = 0;
     }
-    else if (isTokenType('-'))
-    {
-        nextToken();
-        number -= T(number, incognita);
-        number = lineE(number, incognita);
-    }
-    return number;
+    return matrix;
 }
 
-double T(double number, double incognita)
+void drawMatrix(int **matrix, int xCount, int yCount)
 {
-    number = F(incognita);
-    number = lineT(number, incognita);
-    return number;
+    int line = 0, column = 0;
+    while (line < yCount)
+    {
+        while (column < xCount)
+            printf("%d\t", *(*(matrix + line) + column++));
+        printf("\n");
+        line++;
+        column = 0;
+    }
 }
 
-double lineT(double number, double incognita)
+void showForXinRange(int xCount, int yCount)
 {
-    if (isTokenType('*'))
+    int y, x = 0;
+    int **matrix;
+    matrix = initMatrix(xCount, yCount);
+    do
     {
-        nextToken();
-        number *= F(incognita);
-        number = lineT(number, incognita);
-    }
-    else if (isTokenType('/'))
-    {
-        nextToken();
-        number /= F(incognita);
-        number = lineT(number, incognita);
-    }
-    return number;
-}
-
-double F(double incognita)
-{
-    double number;
-    if (isTokenType(INCOGNITA))
-    {
-        number = incognita;
-        nextToken();
-    }
-    else if (isTokenType(MATHFUNCTION))
-        number = MF(incognita);
-    else if (isTokenType(NUMBER))
-    {
-        number = currentToken->value;
-        nextToken();
-    }
-    else if (isTokenType('('))
-    {
-        nextToken();
-        number = E(incognita);
-        if (!isTokenType(')'))
-            printExpectedTokenException("')");
-        nextToken();
-    }
-    else
-        printExpectedTokenException("INCOGNITA, MATHFUNCTION, NUMBER, EXPRESSION");
-    return number;
-}
-
-double MF(double incognita)
-{
-    double number;
-    token *auxToken;
-    auxToken = currentToken;
-
-    if (currentToken->next == NULL ||
-        currentToken->next->type != '(')
-        printExpectedTokenException("'('");
-
-    currentToken = currentToken->next->next;
-    number = E(incognita);
-
-    if (currentToken == NULL ||
-        currentToken->type != ')')
-        printExpectedTokenException("')'");
-
-    currentToken = currentToken->next;
-
-    if (strcmp(auxToken->input, "sin") == 0)
-        return number = sin(number);
-    if (strcmp(auxToken->input, "cos") == 0)
-        return cos(number);
-    if (strcmp(auxToken->input, "tan") == 0)
-        return tan(number);
-    if (strcmp(auxToken->input, "log") == 0)
-        return log(number);
-    return log10(number);
+        system("clear");
+        y = compile(x);
+        matrix[yCount - y][x] = 1;
+        drawMatrix(matrix, xCount, yCount);
+        sleep(1);
+    } while (++x < xCount);
 }
 
 int main()
 {
-    int result;
-    char input[10];
+    int xCount, yCount, max, min;
+    char input[100];
+
+    printf("X count: 0-");
+    scanf("%d", &xCount);
 
     printf("f(x) = ");
-    gets(input);
+    scanf("%s", input);
 
-    getTokens(&tokenList, input);
-    showTokens(tokenList);
+    initTokenList(input, 1);
 
-    currentToken = tokenList.head;
-    result = E(1);
-    printf("Result = %d\n", result);
+    min = compile(0);
+    max = compile(xCount);
 
-    if (currentToken != NULL)
-        printf("Error: value not expected '%s'", currentToken->input);
-
+    yCount = min > max ? min : max;
+    showForXinRange(xCount, yCount);
     return 0;
 }
