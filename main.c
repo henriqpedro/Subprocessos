@@ -1,211 +1,165 @@
-#include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
-#include <ctype.h>
-#include <math.h>
+#include <string.h>
+#include "token.h"
 
-enum tokenType
+struct tokenList tokenList;
+token *currentToken;
+
+void printExpectedTokenException(char *);
+
+int isTokenType(int);
+void nextToken();
+
+double E(double);
+double lineE(double, double);
+double T(double, double);
+double lineT(double, double);
+double F(double);
+double MF(double);
+
+void printExpectedTokenException(char *expected)
 {
-    NUMBER = 256,
-    OPERATOR,
-    MATHFUNCTION,
-    INCOGNITA
-};
+    if (currentToken == NULL)
+        printf("Error: expected %s, but was NULL\n", expected);
+    else
+        printf("Error: expected %s, but was '%s'\n", expected, currentToken->input);
+    exit(0);
+}
 
-typedef struct token
+int isTokenType(int type)
 {
-    int type;
-    int value;
-    char *input;
-    struct token *next;
-} token;
+    return currentToken != NULL && currentToken->type == type;
+}
 
-typedef struct tokenList
+void nextToken()
 {
-    int count;
-    token *head;
-    token *tail;
-} tokenList;
+    currentToken = currentToken->next;
+}
 
-int getTokenValue(char **input, char **tokenInput)
+double E(double incognita)
 {
-    int number = 0, counter = 0;
-    do
-    {
-        number *= 10;
-        number += ((**input) - '0');
-        (*input)++;
-        counter++;
-    } while (isdigit(**input));
-
-    (*input) -= counter;
-    *tokenInput = (char *)malloc(sizeof(char) * (counter + 1));
-
-    strncpy(*tokenInput, *input, counter);
-
-    *(*tokenInput + counter) = '\0';
-    (*input) += counter - 1;
-
+    double number = 0;
+    number = T(number, incognita);
+    number = lineE(number, incognita);
     return number;
 }
 
-int isNormalizedToken(char input)
+double lineE(double number, double incognita)
 {
-    int *normalizedTokens = (int[]){'(', ')'};
-    while (*normalizedTokens)
+    if (isTokenType('+'))
     {
-        if (*normalizedTokens == input)
-            return 1;
-        normalizedTokens++;
+        nextToken();
+        number += T(number, incognita);
+        number = lineE(number, incognita);
     }
-    return 0;
+    else if (isTokenType('-'))
+    {
+        nextToken();
+        number -= T(number, incognita);
+        number = lineE(number, incognita);
+    }
+    return number;
 }
 
-int isOperator(char input)
+double T(double number, double incognita)
 {
-    int *operators = (int[]){'+', '-', '*', '/', '^'};
-    while (*operators)
-    {
-        if (input == *operators)
-            return 1;
-        operators++;
-    }
-    return 0;
+    number = F(incognita);
+    number = lineT(number, incognita);
+    return number;
 }
 
-int isMathFunction(char **input, char **tokenInput)
+double lineT(double number, double incognita)
 {
-    int counter = 0;
-    char **mathFunctions = (char *[]){"sin", "cos", "tan", "log10", "log", '\0'};
-
-    if (isalpha(**input))
+    if (isTokenType('*'))
     {
-        while (*mathFunctions)
-        {
-            while (**input)
-            {
-                if (**mathFunctions != **input)
-                    break;
-
-                (*input)++;
-                (*mathFunctions)++;
-                counter++;
-
-                if (!(**mathFunctions))
-                {
-                    (*input)--;
-                    *mathFunctions -= counter;
-
-                    *tokenInput = (char *)malloc(sizeof(char) * (counter + 1));
-                    strcpy(*tokenInput, *mathFunctions);
-
-                    return 1;
-                }
-            }
-
-            (*input) -= counter;
-            counter = 0;
-            mathFunctions++;
-        }
+        nextToken();
+        number *= F(incognita);
+        number = lineT(number, incognita);
     }
-
-    return 0;
+    else if (isTokenType('/'))
+    {
+        nextToken();
+        number /= F(incognita);
+        number = lineT(number, incognita);
+    }
+    return number;
 }
 
-token *getToken(char **input)
+double F(double incognita)
 {
-    token *token;
-    token = (struct token *)malloc(sizeof(struct token));
-
-    if (token == NULL)
+    double number;
+    if (isTokenType(INCOGNITA))
     {
-        printf("Memory's full!\n");
-        exit(0);
+        number = incognita;
+        nextToken();
     }
-
-    token->type = **input;
-    token->value = **input;
-
-    while (isspace(**input))
-        (*input)++;
-
-    if (isdigit(**input))
+    else if (isTokenType(MATHFUNCTION))
+        number = MF(incognita);
+    else if (isTokenType(NUMBER))
     {
-        token->type = NUMBER;
-        token->value = getTokenValue(input, &token->input);
+        number = currentToken->value;
+        nextToken();
     }
-    else if (isMathFunction(input, &token->input))
-        token->type = MATHFUNCTION;
-    else
+    else if (isTokenType('('))
     {
-        token->input = (char *)malloc(sizeof(char) * 2);
-        *token->input = **input;
-        *(token->input + 1) = '\0';
-
-        if (isOperator(**input))
-            token->type = OPERATOR;
-        else if (!isNormalizedToken(**input))
-        {
-            token->value = -1;
-            token->type = -1;
-        }
-    }
-
-    return token;
-}
-
-void addToken(tokenList *tokenList, char **input)
-{
-    if (tokenList->head == NULL)
-    {
-        tokenList->head = getToken(input);
-        tokenList->tail = tokenList->head;
+        nextToken();
+        number = E(incognita);
+        if (!isTokenType(')'))
+            printExpectedTokenException("')");
+        nextToken();
     }
     else
-    {
-        tokenList->tail->next = getToken(input);
-        tokenList->tail = tokenList->tail->next;
-    }
-
-    tokenList->tail->next = NULL;
-    tokenList->count++;
+        printExpectedTokenException("INCOGNITA, MATHFUNCTION, NUMBER, EXPRESSION");
+    return number;
 }
 
-void showTokens(tokenList tokenList)
+double MF(double incognita)
 {
-    token *token;
-    token = tokenList.head;
-    while (token != NULL)
-    {
-        printf("Token { input: %s, value: %d, type: %d }\n", token->input, token->value, token->type);
-        token = token->next;
-    }
-}
+    double number;
+    token *auxToken;
+    auxToken = currentToken;
 
-tokenList getTokens(char *input)
-{
-    tokenList tokenList;
-    tokenList.head = NULL;
+    if (currentToken->next == NULL ||
+        currentToken->next->type != '(')
+        printExpectedTokenException("'('");
 
-    while (*input)
-    {
-        addToken(&tokenList, &input);
-        input++;
-    }
+    currentToken = currentToken->next->next;
+    number = E(incognita);
 
-    return tokenList;
+    if (currentToken == NULL ||
+        currentToken->type != ')')
+        printExpectedTokenException("')'");
+
+    currentToken = currentToken->next;
+
+    if (strcmp(auxToken->input, "sin") == 0)
+        return number = sin(number);
+    if (strcmp(auxToken->input, "cos") == 0)
+        return cos(number);
+    if (strcmp(auxToken->input, "tan") == 0)
+        return tan(number);
+    if (strcmp(auxToken->input, "log") == 0)
+        return log(number);
+    return log10(number);
 }
 
 int main()
 {
+    int result;
     char input[10];
-    tokenList tokenList;
 
     printf("f(x) = ");
     gets(input);
 
-    tokenList = getTokens(input);
+    getTokens(&tokenList, input);
     showTokens(tokenList);
+
+    currentToken = tokenList.head;
+    result = E(1);
+    printf("Result = %d\n", result);
+
+    if (currentToken != NULL)
+        printf("Error: value not expected '%s'", currentToken->input);
 
     return 0;
 }
