@@ -14,6 +14,8 @@ double E(double);
 double lineE(double, double);
 double T(double, double);
 double lineT(double, double);
+double K(double, double);
+double lineK(double, double);
 double F(double);
 double MF(double);
 
@@ -66,7 +68,7 @@ double lineE(double number, double incognita)
 
 double T(double number, double incognita)
 {
-    number = F(incognita);
+    number = K(number, incognita);
     number = lineT(number, incognita);
     return number;
 }
@@ -76,14 +78,32 @@ double lineT(double number, double incognita)
     if (isTokenType('*'))
     {
         nextToken();
-        number *= F(incognita);
+        number *= K(number, incognita);
         number = lineT(number, incognita);
     }
     else if (isTokenType('/'))
     {
         nextToken();
-        number /= F(incognita);
+        number /= K(number, incognita);
         number = lineT(number, incognita);
+    }
+    return number;
+}
+
+double K(double number, double incognita)
+{
+    number = F(incognita);
+    number = lineK(number, incognita);
+    return number;
+}
+
+double lineK(double number, double incognita)
+{
+    if (isTokenType('^'))
+    {
+        nextToken();
+        number = pow(number, F(incognita));
+        number = lineK(number, incognita);
     }
     return number;
 }

@@ -49,11 +49,10 @@ void showForXinRange(int xCount, int yCount, int xSpacing, int ySpacing)
         y = *(values + x) / ySpacing;
         if (y >= 0 && y <= yCount)
         {
-            //system("clear");
-            printf("%d ", y);
+            system("clear");
             matrix[y][x] = 1;
-            //drawMatrix(matrix, xCount, yCount, xSpacing, ySpacing);
-            //sleep(1);
+            drawMatrix(matrix, xCount, yCount, xSpacing, ySpacing);
+            sleep(1);
         }
     } while (++x < xCount);
 }
