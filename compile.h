@@ -91,6 +91,14 @@ double lineT(double number, double incognita)
 double F(double incognita)
 {
     double number;
+    int negative = 0;
+
+    if (isTokenType('-'))
+    {
+        negative = 1;
+        nextToken();
+    }
+
     if (isTokenType(INCOGNITA))
     {
         number = incognita;
@@ -108,12 +116,12 @@ double F(double incognita)
         nextToken();
         number = E(incognita);
         if (!isTokenType(')'))
-            printExpectedTokenException("')");
+            printExpectedTokenException("')'");
         nextToken();
     }
     else
         printExpectedTokenException("INCOGNITA, MATHFUNCTION, NUMBER, EXPRESSION");
-    return number;
+    return negative ? number * -1 : number;
 }
 
 double MF(double incognita)
@@ -160,7 +168,27 @@ double compile(double incognita)
 
     number = E(incognita);
     if (currentToken != NULL)
-        printf("Error: value not expected '%s'", currentToken->input);
+    {
+        printf("Error: value not expected '%s'\n", currentToken->input);
+        exit(1);
+    }
 
     return number;
+}
+
+double *getForXinRange(int min, int max)
+{
+    int i = 0, size, initial;
+    double *values;
+
+    initial = min;
+    size = max - min + 1;
+    values = malloc(sizeof(double) * size);
+    do
+    {
+        *(values + i) = compile(initial++);
+        printf("res = %lf\n", *(values + i));
+    } while (++i < size);
+
+    return values;
 }
