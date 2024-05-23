@@ -6,14 +6,14 @@ O programa espera como entrada uma função matemática representando a trajetó
 \+ | Soma <br />
 \- | Subtração <br />
 \* | Multiplicação <br />
-/ | Divisão <br />
-^ | Potenciação <br />
+/  | Divisão <br />
+^  | Potenciação <br />
 ***************************************
 
 ## FUNÇÕES MATEMÁTICAS
-sin() | Seno <br />
-cos() | Cosseno <br />
-tan() | Tangente <br />
-log() | Logaritmo <br />
+sin()   | Seno <br />
+cos()   | Cosseno <br />
+tan()   | Tangente <br />
+log()   | Logaritmo <br />
 log10() | Logaritmo na base 10 <br />
 ***************************************
