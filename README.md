@@ -3,11 +3,13 @@ O programa espera como entrada uma função matemática representando a trajetó
 ***************************************
 
 ## OPERAÇÕES
-\+ | Soma <br />
-\- | Subtração <br />
-\* | Multiplicação <br />
-/  | Divisão <br />
-^  | Potenciação <br />
+<pre>
+\+ | Soma
+\- | Subtraçã
+\* | Multiplicação
+/  | Divisão
+^  | Potenciação
+</pre>
 ***************************************
 
 ## FUNÇÕES MATEMÁTICAS
