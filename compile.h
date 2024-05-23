@@ -196,18 +196,18 @@ double compile(double incognita)
     return number;
 }
 
-double *getForXinRange(int min, int max)
+double *getForXinRange(int min, int max, int space)
 {
     int i = 0, size, initial;
     double *values;
 
     initial = min;
-    size = max - min + 1;
+    size = ((max - min) / space) + 1;
     values = malloc(sizeof(double) * size);
     do
     {
-        *(values + i) = compile(initial++);
-        printf("res = %lf\n", *(values + i));
+        *(values + i) = compile(initial);
+        initial += space;
     } while (++i < size);
 
     return values;
