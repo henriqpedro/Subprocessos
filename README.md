@@ -5,7 +5,7 @@ O programa espera como entrada uma função matemática representando a trajetó
 ## OPERAÇÕES
 <pre>
 \+ | Soma
-\- | Subtraçã
+\- | Subtração
 \* | Multiplicação
 /  | Divisão
 ^  | Potenciação
@@ -13,9 +13,11 @@ O programa espera como entrada uma função matemática representando a trajetó
 ***************************************
 
 ## FUNÇÕES MATEMÁTICAS
+<pre>
 sin()   | Seno <br />
 cos()   | Cosseno <br />
 tan()   | Tangente <br />
 log()   | Logaritmo <br />
 log10() | Logaritmo na base 10 <br />
+</pre>
 ***************************************
