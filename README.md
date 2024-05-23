@@ -7,8 +7,8 @@ O programa espera como entrada uma função matemática representando a trajetó
 + | Soma
 - | Subtração
 * | Multiplicação
-/  | Divisão
-^  | Potenciação
+/ | Divisão
+^ | Potenciação
 </pre>
 ***************************************
 
