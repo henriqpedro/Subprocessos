@@ -89,7 +89,7 @@ void printDescription()
     printf("^ | Potenciação\n");
     printf("***************************************\n");
 
-    printf("\nFUNÇÕES\n");
+    printf("\nFUNÇÕES MATEMÁTICAS\n");
     printf("***************************************\n");
     printf("sin() | Seno\n");
     printf("cos() | Cosseno\n");
@@ -127,6 +127,7 @@ void configPlane(int *speed, char *input)
     scanf("%d", speed);
 
     printf("\nFUNÇÃO DO TRAJETO\n");
+    printf("**SUGESTÕES: f(x) = -log(x)*100+1000; f(x) = 150*sin(x/2-1)+900; f(x) = 5*x; f(x) = (1+1/10)^(x - 30)**\n");
     printf("f(x) = ");
     scanf("%s", input);
     printf("***************************************\n\n");
