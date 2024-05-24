@@ -3,6 +3,8 @@
 #include <signal.h>
 #include "compile.h"
 
+int maxCount = 200;
+
 int **initMatrix(int xMax, int yMax)
 {
     int **matrix;
@@ -46,10 +48,10 @@ void drawMatrix(int **matrix, int xSize, int ySize, int xSpacing, int ySpacing)
     printf("\n");
 }
 
-void showForXinRange(double *values, int xMax, int yMax, int xSpacing, int ySpacing)
+void showForXinRange(double *valuesSt, double *valuesNd, int xMax, int yMax, int xSpacing, int ySpacing)
 {
     int **matrix;
-    int y, x = 0;
+    int y1, y2, x = 0;
     int xSize, ySize;
 
     ySize = (yMax / ySpacing) + 1;
@@ -58,14 +60,18 @@ void showForXinRange(double *values, int xMax, int yMax, int xSpacing, int ySpac
     matrix = initMatrix(xSize, yMax);
     do
     {
-        y = *(values + x) / ySpacing;
-        if (y >= 0 && y <= yMax / ySpacing)
-        {
-            system("clear");
-            matrix[y][x] = 1;
-            drawMatrix(matrix, xSize, ySize, xSpacing, ySpacing);
-            sleep(1);
-        }
+        system("clear");
+
+        y1 = *(valuesSt + x) / ySpacing;
+        y2 = *(valuesNd + x) / ySpacing;
+
+        if (y1 >= 0 && y1 <= yMax / ySpacing)
+            matrix[y1][x] = 1;
+        if (y2 >= 0 && y2 <= yMax / ySpacing)
+            matrix[y2][x] = 1;
+
+        drawMatrix(matrix, xSize, ySize, xSpacing, ySpacing);
+        sleep(1);
     } while (++x <= xMax / xSpacing);
 }
 
@@ -117,7 +123,9 @@ void configGraph(int *xMax, int *yMax, int *xSpacing, int *ySpacing)
     printf("***************************************\n\n");
 }
 
-void configPlane(int *speed, char *input, int descriptor)
+void exec(int signal) {}
+
+void configPlane(int *speed, char *input)
 {
     printf("\nAERONAVES\n");
     printf("***************************************\n");
@@ -129,66 +137,95 @@ void configPlane(int *speed, char *input, int descriptor)
     printf("f(x) = ");
     scanf("%s", input);
     printf("***************************************\n\n");
-
-    if (descriptor > 0)
-        kill(descriptor, SIGUSR1);
-    else 
-        signal(SIGUSR1, server);
 }
 
-double *mapPlane(int descriptor, int xMax, int yMax, int xSpacing, int ySpacing)
+double *mapPlane(int descriptor, int readfd, int writefd, int xMax, int yMax, int xSpacing, int ySpacing)
 {
+    char speedBuffer[10];
+    char buffer[maxCount];
     char input[100];
     int speed;
 
-    configPlane(&speed, input, descriptor);
+    if (descriptor > 0)
+    {
+        read(readfd, buffer, maxCount);
+
+        configPlane(&speed, input);
+        snprintf(speedBuffer, 10, "%d ", speed);
+        strcat(buffer, speedBuffer);
+        strcat(buffer, input);
+
+        write(writefd, buffer, maxCount);
+    }
+    else
+    {
+        configPlane(&speed, input);
+        snprintf(speedBuffer, 10, "%d ", speed);
+        strcat(buffer, speedBuffer);
+        strcat(buffer, input);
+
+        write(writefd, buffer, maxCount);
+        read(readfd, buffer, maxCount);
+
+        printf("%s\n", buffer);
+    }
+
     initTokenList(input, 1);
     return getForXinRange(0, xMax, xSpacing);
 }
 
-char *getString(double *values, int xCount)
+void airplane(int descriptor, int readfd, int writefd, int xMax, int yMax, int xSpacing, int ySpacing)
 {
-    char *buffer;
-    int xSize, bufferSize, x = 0;
+    int x;
+    char *token;
+    char bufferIn[maxCount], bufferOut[maxCount];
+    double *valuesSt, *valuesNd;
 
-    xSize = xCount + 1;
-    bufferSize = sizeof(char) * 8 * xSize + 1;
-    buffer = malloc(bufferSize);
-    do
+    if (descriptor > 0)
     {
-        char number[9];
-        snprintf(number, 9, "%07d ", (int)*(values + x));
-        strcat(buffer, number);
-    } while (++x < xCount);
+        valuesSt = mapPlane(descriptor, readfd, writefd, xMax, yMax, xSpacing, ySpacing);
+        do
+        {
+            char number[10];
+            snprintf(number, 10, "%08d ", (int)*(valuesSt + x));
+            strcat(bufferIn, number);
+        } while (++x < xMax / xSpacing);
 
-    return buffer;
-}
+        write(writefd, bufferIn, maxCount);
+        read(readfd, bufferOut, maxCount);
 
-void server(int descriptor, int readfd, int writefd, int xMax, int yMax, int xSpacing, int ySpacing)
-{
-    char *buffer;
-    double *values;
-
-    values = mapPlane(descriptor, xMax, yMax, xSpacing, ySpacing);
-    buffer = getString(values, xMax / xSpacing);
-
-    printf("%s\n", buffer);
-    // showForXinRange(values, xMax, yMax, xSpacing, ySpacing);
+        x = 0;
+        valuesNd = malloc(sizeof(double) * (xMax / xSpacing + 1));
+        token = strtok(bufferOut, " ");
+        do
+        {
+            *(valuesNd + x++) = atoi(token);
+        } while ((token = strtok(NULL, " ")));
+        showForXinRange(valuesSt, valuesNd, xMax, yMax, xSpacing, ySpacing);
+    }
+    else
+    {
+        valuesSt = mapPlane(descriptor, readfd, writefd, xMax, yMax, xSpacing, ySpacing);
+        do
+        {
+            char number[10];
+            snprintf(number, 10, "%08d ", (int)*(valuesSt + x));
+            strcat(bufferIn, number);
+        } while (++x < xMax / xSpacing);
+        write(writefd, bufferIn, maxCount);
+    }
 }
 
 int main()
 {
     int xMax, yMax;
     int ySpacing, xSpacing;
-    int pid;
 
     int descriptor;
     int planeSt[2], planeNd[2];
 
     printDescription();
     configGraph(&xMax, &yMax, &xSpacing, &ySpacing);
-
-    pid = getpid();
 
     if (pipe(planeSt) < 0 || pipe(planeNd) < 0)
     {
@@ -206,24 +243,20 @@ int main()
         close(planeSt[0]);
         close(planeNd[1]);
 
-        server(descriptor, planeNd[0], planeSt[1], xMax, yMax, xSpacing, ySpacing);
+        airplane(descriptor, planeNd[0], planeSt[1], xMax, yMax, xSpacing, ySpacing);
 
         close(planeSt[1]);
         close(planeNd[0]);
-        exit(0);
     }
     else
     {
         close(planeSt[1]);
         close(planeNd[0]);
 
-        signal(SIGUSR1, server);
-        pause();
-        server(descriptor, planeSt[0], planeNd[1], xMax, yMax, xSpacing, ySpacing);
+        airplane(descriptor, planeSt[0], planeNd[1], xMax, yMax, xSpacing, ySpacing);
 
         close(planeSt[0]);
         close(planeNd[1]);
-        exit(0);
     }
 
     return 0;
