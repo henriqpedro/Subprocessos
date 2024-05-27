@@ -1,9 +1,19 @@
-#include <stdio.h>
 #include <unistd.h>
-#include <signal.h>
+#include <pthread.h>
 #include "compile.h"
 
 int maxCount = 200;
+struct args
+{
+    int speed;
+    int mainSpeed;
+    int xMax;
+    int yMax;
+    int xSpacing;
+    int ySpacing;
+    double *values;
+    double *mainValues;
+};
 
 int **initMatrix(int xMax, int yMax)
 {
@@ -48,31 +58,34 @@ void drawMatrix(int **matrix, int xSize, int ySize, int xSpacing, int ySpacing)
     printf("\n");
 }
 
-void showForXinRange(double *valuesSt, double *valuesNd, int xMax, int yMax, int xSpacing, int ySpacing)
+void *showForXinRange(void *args)
 {
     int **matrix;
     int y1, y2, x = 0;
     int xSize, ySize;
 
-    ySize = (yMax / ySpacing) + 1;
-    xSize = (xMax / xSpacing) + 1;
+    struct args *arguments;
+    arguments = (struct args *)args;
 
-    matrix = initMatrix(xSize, yMax);
+    ySize = (arguments->yMax / arguments->ySpacing) + 1;
+    xSize = (arguments->xMax / arguments->xSpacing) + 1;
+
+    matrix = initMatrix(xSize, arguments->yMax);
     do
     {
         system("clear");
 
-        y1 = *(valuesSt + x) / ySpacing;
-        y2 = *(valuesNd + x) / ySpacing;
+        y1 = *(arguments->values + x) / arguments->ySpacing;
+        y2 = *(arguments->mainValues + x) / arguments->ySpacing;
 
-        if (y1 >= 0 && y1 <= yMax / ySpacing)
+        if (y1 >= 0 && y1 <= arguments->yMax / arguments->ySpacing)
             matrix[y1][x] = 1;
-        if (y2 >= 0 && y2 <= yMax / ySpacing)
-            matrix[y2][x] = 1;
+        if (y2 >= 0 && y2 <= arguments->yMax / arguments->ySpacing)
+            matrix[y2][x] = 2;
 
-        drawMatrix(matrix, xSize, ySize, xSpacing, ySpacing);
+        drawMatrix(matrix, xSize, ySize, arguments->xSpacing, arguments->ySpacing);
         sleep(1);
-    } while (++x <= xMax / xSpacing);
+    } while (++x <= arguments->xMax / arguments->xSpacing);
 }
 
 void printDescription()
@@ -123,8 +136,6 @@ void configGraph(int *xMax, int *yMax, int *xSpacing, int *ySpacing)
     printf("***************************************\n\n");
 }
 
-void exec(int signal) {}
-
 void configPlane(int *speed, char *input)
 {
     printf("\nAERONAVES\n");
@@ -139,81 +150,103 @@ void configPlane(int *speed, char *input)
     printf("***************************************\n\n");
 }
 
-double *mapPlane(int descriptor, int readfd, int writefd, int xMax, int yMax, int xSpacing, int ySpacing)
+void initPlaneBuffer(char *buffer, int *speed, char *input)
 {
     char speedBuffer[10];
-    char buffer[maxCount];
-    char input[100];
-    int speed;
 
-    if (descriptor > 0)
-    {
-        read(readfd, buffer, maxCount);
-
-        configPlane(&speed, input);
-        snprintf(speedBuffer, 10, "%d ", speed);
-        strcat(buffer, speedBuffer);
-        strcat(buffer, input);
-
-        write(writefd, buffer, maxCount);
-    }
-    else
-    {
-        configPlane(&speed, input);
-        snprintf(speedBuffer, 10, "%d ", speed);
-        strcat(buffer, speedBuffer);
-        strcat(buffer, input);
-
-        write(writefd, buffer, maxCount);
-        read(readfd, buffer, maxCount);
-
-        printf("%s\n", buffer);
-    }
-
-    initTokenList(input, 1);
-    return getForXinRange(0, xMax, xSpacing);
+    configPlane(speed, input);
+    snprintf(speedBuffer, 10, "%d ", *speed);
+    strcpy(buffer, speedBuffer);
 }
 
-void airplane(int descriptor, int readfd, int writefd, int xMax, int yMax, int xSpacing, int ySpacing)
+void getValuesBuffer(char *buffer, double *values, int lastIndex)
 {
-    int x;
+    int x = 0;
+    strcpy(buffer, "\0");
+    do
+    {
+        char number[10];
+        snprintf(number, 10, "%08d ", (int)*(values + x));
+        strcat(buffer, number);
+    } while (++x < lastIndex);
+}
+
+double *getValuesFromBuffer(char *buffer, int length)
+{
+    int x = 0;
+    double *values;
     char *token;
-    char bufferIn[maxCount], bufferOut[maxCount];
-    double *valuesSt, *valuesNd;
 
-    if (descriptor > 0)
+    values = malloc(sizeof(double) * length);
+    token = strtok(buffer, " ");
+    do
     {
-        valuesSt = mapPlane(descriptor, readfd, writefd, xMax, yMax, xSpacing, ySpacing);
-        do
-        {
-            char number[10];
-            snprintf(number, 10, "%08d ", (int)*(valuesSt + x));
-            strcat(bufferIn, number);
-        } while (++x < xMax / xSpacing);
+        *(values + x++) = atoi(token);
+    } while ((token = strtok(NULL, " ")));
 
-        write(writefd, bufferIn, maxCount);
-        read(readfd, bufferOut, maxCount);
+    return values;
+}
 
-        x = 0;
-        valuesNd = malloc(sizeof(double) * (xMax / xSpacing + 1));
-        token = strtok(bufferOut, " ");
-        do
-        {
-            *(valuesNd + x++) = atoi(token);
-        } while ((token = strtok(NULL, " ")));
-        showForXinRange(valuesSt, valuesNd, xMax, yMax, xSpacing, ySpacing);
-    }
-    else
+void airplane(int readfd, int writefd, int xMax, int yMax, int xSpacing, int ySpacing)
+{
+    int speed;
+    double *values;
+    char input[100], buffer[maxCount];
+
+    read(readfd, buffer, maxCount);
+    initPlaneBuffer(buffer, &speed, input);
+    write(writefd, buffer, maxCount);
+
+    initTokenList(input, 0);
+    values = getForXinRange(0, xMax, xSpacing);
+
+    getValuesBuffer(buffer, values, xMax / xSpacing);
+    write(writefd, buffer, maxCount);
+}
+
+void callThread(double *mainValues, double *values, int mainSpeed, int speed, int xMax, int yMax, int xSpacing, int ySpacing)
+{
+    pthread_t tid;
+    struct args *arguments = (struct args *)malloc(sizeof(struct args));
+
+    arguments->mainValues = mainValues;
+    arguments->values = values;
+    arguments->mainSpeed = mainSpeed;
+    arguments->speed = speed;
+
+    arguments->xMax = xMax;
+    arguments->yMax = yMax;
+    arguments->xSpacing = xSpacing;
+    arguments->ySpacing = ySpacing;
+
+    pthread_create(&tid, NULL, showForXinRange, (void *)arguments);
+    pthread_join(tid, NULL);
+}
+
+void mainAirplane(int readfd, int writefd, int xMax, int yMax, int xSpacing, int ySpacing)
+{
+    int speed, mainSpeed;
+    double *values, *mainValues;
+    char input[100], buffer[maxCount];
+
+    initPlaneBuffer(buffer, &mainSpeed, input);
+    write(writefd, buffer, maxCount);
+
+    initTokenList(input, 0);
+    mainValues = getForXinRange(0, xMax, xSpacing);
+
+    read(readfd, buffer, maxCount);
+    speed = atoi(buffer);
+    if (speed <= 0)
     {
-        valuesSt = mapPlane(descriptor, readfd, writefd, xMax, yMax, xSpacing, ySpacing);
-        do
-        {
-            char number[10];
-            snprintf(number, 10, "%08d ", (int)*(valuesSt + x));
-            strcat(bufferIn, number);
-        } while (++x < xMax / xSpacing);
-        write(writefd, bufferIn, maxCount);
+        printf("Error: Invalid speed;\n");
+        exit(0);
     }
+
+    read(readfd, buffer, maxCount);
+    values = getValuesFromBuffer(buffer, xMax / xSpacing + 1);
+
+    callThread(mainValues, values, mainSpeed, speed, xMax, yMax, xSpacing, ySpacing);
 }
 
 int main()
@@ -243,7 +276,7 @@ int main()
         close(planeSt[0]);
         close(planeNd[1]);
 
-        airplane(descriptor, planeNd[0], planeSt[1], xMax, yMax, xSpacing, ySpacing);
+        mainAirplane(planeNd[0], planeSt[1], xMax, yMax, xSpacing, ySpacing);
 
         close(planeSt[1]);
         close(planeNd[0]);
@@ -253,7 +286,7 @@ int main()
         close(planeSt[1]);
         close(planeNd[0]);
 
-        airplane(descriptor, planeSt[0], planeNd[1], xMax, yMax, xSpacing, ySpacing);
+        airplane(planeSt[0], planeNd[1], xMax, yMax, xSpacing, ySpacing);
 
         close(planeSt[0]);
         close(planeNd[1]);
