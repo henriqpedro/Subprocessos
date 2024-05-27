@@ -36,6 +36,20 @@ int **initMatrix(int xMax, int yMax)
     return matrix;
 }
 
+void clearMatrix(int **matrix, int clearValue, int xSize, int ySize, int xSpacing, int ySpacing)
+{
+    int line = ySize - 1, column = 0, value;
+    do
+    {
+        while (column < xSize)
+        {
+            value = *(*(matrix + line) + column);
+            *(*(matrix + line) + column++) = value == clearValue ? 0 : value;
+        }
+        column = 0;
+    } while (--line >= 0);
+}
+
 void drawMatrix(int **matrix, int xSize, int ySize, int xSpacing, int ySpacing)
 {
     int line = ySize - 1, column = 0;
@@ -63,6 +77,7 @@ void *showForXinRange(void *args)
     int **matrix;
     int y1, y2, x = 0;
     int xSize, ySize;
+    int speedDifference, mainSpeedDifference;
 
     struct args *arguments;
     arguments = (struct args *)args;
@@ -70,21 +85,29 @@ void *showForXinRange(void *args)
     ySize = (arguments->yMax / arguments->ySpacing) + 1;
     xSize = (arguments->xMax / arguments->xSpacing) + 1;
 
+    speedDifference = arguments->speed / arguments->mainSpeed;
+    mainSpeedDifference = arguments->mainSpeed / arguments->speed;
+
     matrix = initMatrix(xSize, arguments->yMax);
     do
     {
-        system("clear");
-
-        y1 = *(arguments->values + x) / arguments->ySpacing;
-        y2 = *(arguments->mainValues + x) / arguments->ySpacing;
-
+        clearMatrix(matrix, 1, xSize, ySize, arguments->xSpacing, arguments->ySpacing);
+        y1 = *(arguments->mainValues + x) / arguments->ySpacing;
         if (y1 >= 0 && y1 <= arguments->yMax / arguments->ySpacing)
             matrix[y1][x] = 1;
-        if (y2 >= 0 && y2 <= arguments->yMax / arguments->ySpacing)
-            matrix[y2][x] = 2;
 
+        sleep(speedDifference);
+        system("clear");
         drawMatrix(matrix, xSize, ySize, arguments->xSpacing, arguments->ySpacing);
-        sleep(1);
+
+        clearMatrix(matrix, 2, xSize, ySize, arguments->xSpacing, arguments->ySpacing);
+        y2 = *(arguments->values + x) / arguments->ySpacing;
+        if (y2 >= 0 && y2 <= arguments->yMax / arguments->ySpacing)
+            matrix[y2][x] = matrix[y2][x] == 0 ? 2 : 3;
+
+        sleep(mainSpeedDifference);
+        system("clear");
+        drawMatrix(matrix, xSize, ySize, arguments->xSpacing, arguments->ySpacing);
     } while (++x <= arguments->xMax / arguments->xSpacing);
 }
 
