@@ -15,20 +15,20 @@ struct args
     double *mainValues;
 };
 
-int **initMatrix(int xMax, int yMax)
+char **initMatrix(int xMax, int yMax)
 {
-    int **matrix;
+    char **matrix;
     int line = 0, column = 0;
 
-    matrix = (int **)malloc(sizeof(int *) * yMax);
+    matrix = (char **)malloc(sizeof(char *) * yMax);
     while (line < yMax)
-        *(matrix + line++) = (int *)malloc(sizeof(int) * xMax);
+        *(matrix + line++) = (char *)malloc(sizeof(char) * xMax);
 
     line = 0;
     while (line < yMax)
     {
         while (column < xMax)
-            *(*(matrix + line) + column++) = 0;
+            *(*(matrix + line) + column++) = ' ';
         line++;
         column = 0;
     }
@@ -36,28 +36,52 @@ int **initMatrix(int xMax, int yMax)
     return matrix;
 }
 
-void clearMatrix(int **matrix, int clearValue, int xSize, int ySize, int xSpacing, int ySpacing)
+void clearMatrix(char **matrix, int clearValue, int xSize, int ySize, int xSpacing, int ySpacing)
 {
-    int line = ySize - 1, column = 0, value;
+    int line = ySize - 1, column = 0;
+    char value, overrideValue;
+
+    overrideValue = clearValue == '1' ? '-' : '#';
     do
     {
         while (column < xSize)
         {
             value = *(*(matrix + line) + column);
-            *(*(matrix + line) + column++) = value == clearValue ? 0 : value;
+            *(*(matrix + line) + column++) = value == clearValue ? overrideValue : value;
         }
         column = 0;
     } while (--line >= 0);
 }
 
-void drawMatrix(int **matrix, int xSize, int ySize, int xSpacing, int ySpacing)
+void drawChar(char value)
+{
+    switch (value)
+    {
+    case '1':
+        printf("\e[0;102m");
+        break;
+    case '2':
+        printf("\e[0;104m");
+        break;
+    case '3':
+        printf("\e[0;101m");
+        break;
+    default:
+        printf("\e[0m");
+    }
+
+    printf("%3c  ", value);
+    printf("\e[0m");
+}
+
+void drawMatrix(char **matrix, int xSize, int ySize, int xSpacing, int ySpacing)
 {
     int line = ySize - 1, column = 0;
     do
     {
         printf("[%04d] ", line * ySpacing);
         while (column < xSize)
-            printf("%3d  ", *(*(matrix + line) + column++));
+            drawChar(*(*(matrix + line) + column++));
         printf("\n");
         column = 0;
     } while (--line >= 0);
@@ -72,43 +96,73 @@ void drawMatrix(int **matrix, int xSize, int ySize, int xSpacing, int ySpacing)
     printf("\n");
 }
 
+int getAxisRange(int max, int spacing)
+{
+    return max / spacing + 1;
+}
+
+void clearDefDrawMatrix(char **matrix, double *values, int index, char drawValue, int xMax, int yMax, int xSpacing, int ySpacing)
+{
+    int y;
+    int xSize, ySize;
+
+    ySize = getAxisRange(yMax, ySpacing);
+    xSize = getAxisRange(xMax, xSpacing);
+
+    if (index >= xSize)
+        return;
+
+    clearMatrix(matrix, drawValue, xSize, ySize, xSpacing, ySpacing);
+
+    y = *(values + index) / ySpacing;
+    if (y >= 0 && y <= yMax / ySpacing)
+        matrix[y][index] = matrix[y][index] == '1' || matrix[y][index] == '2' ? '3' : drawValue;
+
+    sleep(1);
+    system("clear");
+    drawMatrix(matrix, xSize, ySize, xSpacing, ySpacing);
+    sleep(1);
+}
+
+int getSpeedReason(int mainSpeed, int speed)
+{
+    int speedDifference, mainSpeedDifference;
+
+    speedDifference = speed / mainSpeed;
+    mainSpeedDifference = mainSpeed / speed;
+    return mainSpeedDifference > 0 ? mainSpeedDifference : speedDifference;
+}
+
 void *showForXinRange(void *args)
 {
-    int **matrix;
-    int y1, y2, x = 0;
-    int xSize, ySize;
-    int speedDifference, mainSpeedDifference;
+    char **matrix;
+    int i, xSize, x1 = 0, x2 = 0;
+    int mainGtAirplane, speedDifference;
 
     struct args *arguments;
     arguments = (struct args *)args;
 
-    ySize = (arguments->yMax / arguments->ySpacing) + 1;
-    xSize = (arguments->xMax / arguments->xSpacing) + 1;
+    mainGtAirplane = arguments->mainSpeed > arguments->speed;
+    speedDifference = getSpeedReason(arguments->mainSpeed, arguments->speed);
+    matrix = initMatrix(arguments->xMax, arguments->yMax);
 
-    speedDifference = arguments->speed / arguments->mainSpeed;
-    mainSpeedDifference = arguments->mainSpeed / arguments->speed;
-
-    matrix = initMatrix(xSize, arguments->yMax);
-    do
+    xSize = getAxisRange(arguments->xMax, arguments->xSpacing);
+    while (x1 < xSize || x2 < xSize)
     {
-        clearMatrix(matrix, 1, xSize, ySize, arguments->xSpacing, arguments->ySpacing);
-        y1 = *(arguments->mainValues + x) / arguments->ySpacing;
-        if (y1 >= 0 && y1 <= arguments->yMax / arguments->ySpacing)
-            matrix[y1][x] = 1;
-
-        sleep(speedDifference);
-        system("clear");
-        drawMatrix(matrix, xSize, ySize, arguments->xSpacing, arguments->ySpacing);
-
-        clearMatrix(matrix, 2, xSize, ySize, arguments->xSpacing, arguments->ySpacing);
-        y2 = *(arguments->values + x) / arguments->ySpacing;
-        if (y2 >= 0 && y2 <= arguments->yMax / arguments->ySpacing)
-            matrix[y2][x] = matrix[y2][x] == 0 ? 2 : 3;
-
-        sleep(mainSpeedDifference);
-        system("clear");
-        drawMatrix(matrix, xSize, ySize, arguments->xSpacing, arguments->ySpacing);
-    } while (++x <= arguments->xMax / arguments->xSpacing);
+        i = 0;
+        if (mainGtAirplane)
+        {
+            while (i++ < speedDifference)
+                clearDefDrawMatrix(matrix, arguments->mainValues, x1++, '1', arguments->xMax, arguments->yMax, arguments->xSpacing, arguments->ySpacing);
+            clearDefDrawMatrix(matrix, arguments->values, x2++, '2', arguments->xMax, arguments->yMax, arguments->xSpacing, arguments->ySpacing);
+        }
+        else
+        {
+            while (i++ < speedDifference)
+                clearDefDrawMatrix(matrix, arguments->values, x2++, '2', arguments->xMax, arguments->yMax, arguments->xSpacing, arguments->ySpacing);
+            clearDefDrawMatrix(matrix, arguments->mainValues, x1++, '1', arguments->xMax, arguments->yMax, arguments->xSpacing, arguments->ySpacing);
+        }
+    }
 }
 
 void printDescription()
@@ -223,7 +277,7 @@ void airplane(int readfd, int writefd, int xMax, int yMax, int xSpacing, int ySp
     initTokenList(input, 0);
     values = getForXinRange(0, xMax, xSpacing);
 
-    getValuesBuffer(buffer, values, xMax / xSpacing);
+    getValuesBuffer(buffer, values, xMax / xSpacing + 1);
     write(writefd, buffer, maxCount);
 }
 
