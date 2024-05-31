@@ -1,4 +1,7 @@
 # SISTEMA CARTESIANO (TRAJETÓRIA DE AERONAVES)
+
+<b>Compilação (Linux GCC):</b> ```gcc main.c -Wall -o main.exe -lm```
+
 O programa espera como entrada duas funções matemáticas representando a trajetória traçada por dois veículos aéreos e, sabendo a velocidade de ambos, esboça num plano cartesiano (concorrentemente) o trajeto correspondente a cada um deles, indicando a ocorrência de colisão.
 <br />
 <br />
@@ -9,9 +12,8 @@ A razão entre as velocidades de entrada dos aviões é utilizada para simular a
 <br />
 <br />
 Em se tratando da definição das funções, são aceitos os seguintes recursos:
-<br />
 
-## OPERAÇÕES
+### OPERAÇÕES
 <pre>
 + | Soma
 - | Subtração
@@ -21,7 +23,7 @@ Em se tratando da definição das funções, são aceitos os seguintes recursos:
 </pre>
 ***************************************
 
-## FUNÇÕES MATEMÁTICAS
+### FUNÇÕES MATEMÁTICAS
 <pre>
 sin()   | Seno 
 cos()   | Cosseno
